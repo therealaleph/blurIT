@@ -1,5 +1,7 @@
 # Telegram Video Blur Bot
 
+**Live Bot:** [@bluritbot](https://t.me/bluritbot)
+
 A professional Telegram bot that blurs videos with customizable blur percentage.
 
 ## Features
