@@ -17,4 +17,5 @@ build/
 temp/
 tmp/
 .env
+.DS_Store
 

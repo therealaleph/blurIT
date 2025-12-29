@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlurIT - Local Video Blur Tool | ابزار محلی تار کردن ویدیو</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Tahoma', 'Arial', sans-serif;
+            background: #000;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: #1a1a1a;
+            border: 2px solid #cc0000;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(204, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #cc0000;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 2.5em;
+            text-shadow: 0 0 10px rgba(204, 0, 0, 0.5);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #999;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .upload-area {
+            border: 3px dashed #cc0000;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 30px;
+            background: #0a0a0a;
+        }
+
+        .upload-area:hover {
+            border-color: #ff0000;
+            background: #111;
+            box-shadow: 0 0 20px rgba(204, 0, 0, 0.3);
+        }
+
+        .upload-area.dragover {
+            border-color: #ff0000;
+            background: #1a0a0a;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #cc0000;
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .upload-hint {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .video-preview {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .video-preview video {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(204, 0, 0, 0.3);
+        }
+
+        .controls {
+            margin-bottom: 30px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #cc0000;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 8px;
+            border-radius: 5px;
+            background: #333;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #cc0000;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(204, 0, 0, 0.5);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #cc0000;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(204, 0, 0, 0.5);
+        }
+
+        .percentage-value {
+            min-width: 50px;
+            text-align: center;
+            font-weight: 600;
+            color: #cc0000;
+            font-size: 1.1em;
+        }
+
+        .button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #cc0000 0%, #990000 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin-bottom: 15px;
+        }
+
+        .button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(204, 0, 0, 0.6);
+        }
+
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .button.secondary {
+            background: #333;
+            border: 1px solid #cc0000;
+        }
+
+        .button.secondary:hover:not(:disabled) {
+            box-shadow: 0 5px 20px rgba(204, 0, 0, 0.4);
+        }
+
+        .progress-container {
+            display: none;
+            margin-bottom: 20px;
+        }
+
+        .progress-container.active {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #333;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 10px;
+            border: 1px solid #cc0000;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #cc0000 0%, #ff0000 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        .error {
+            background: #330000;
+            color: #ff6666;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+            border: 1px solid #cc0000;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .info {
+            background: #1a0a0a;
+            color: #ff6666;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            line-height: 1.6;
+            border: 1px solid #cc0000;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .bilingual {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .bilingual-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .persian {
+            direction: rtl;
+            font-family: 'Tahoma', 'Arial', sans-serif;
+        }
+
+        .conversion-links {
+            margin-top: 30px;
+            padding: 20px;
+            background: #0a0a0a;
+            border: 1px solid #cc0000;
+            border-radius: 10px;
+        }
+
+        .conversion-links h3 {
+            color: #cc0000;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            text-align: center;
+        }
+
+        .conversion-links p {
+            color: #999;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .conversion-links ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .conversion-links li {
+            margin-bottom: 10px;
+        }
+
+        .conversion-links a {
+            color: #ff6666;
+            text-decoration: none;
+            display: block;
+            padding: 10px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .conversion-links a:hover {
+            color: #ff0000;
+            border-color: #cc0000;
+            background: #0f0f0f;
+            transform: translateX(5px);
+        }
+
+        .footer {
+            margin-top: 30px;
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #333;
+            padding-top: 20px;
+        }
+
+        .footer p {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+
+        .footer a {
+            color: #cc0000;
+            text-decoration: none;
+            margin: 0 10px;
+            transition: color 0.3s ease;
+        }
+
+        .footer a:hover {
+            color: #ff0000;
+            text-decoration: underline;
+        }
+
+        .footer .separator {
+            color: #666;
+            margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 BlurIT</h1>
+        <p class="subtitle bilingual">
+            <span>Blur your videos locally - No uploads, no bots, 100% private</span>
+            <span class="persian">ویدیوهای خود را به صورت محلی تار کنید - بدون آپلود، بدون ربات، ۱۰۰٪ خصوصی</span>
+        </p>
+
+        <div class="error" id="error"></div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text bilingual">
+                <span>Click or drag video here</span>
+                <span class="persian">اینجا کلیک کنید یا ویدیو را بکشید</span>
+            </div>
+            <div class="upload-hint bilingual">
+                <span>Supports MP4, WebM, MOV and other video formats</span>
+                <span class="persian">از فرمت‌های MP4، WebM، MOV و سایر فرمت‌های ویدیو پشتیبانی می‌کند</span>
+            </div>
+            <input type="file" id="fileInput" accept="video/*">
+            <button type="button" class="button" id="chooseFileBtn" style="margin-top: 15px; max-width: 200px; margin-left: auto; margin-right: auto;">
+                <span class="bilingual">
+                    <span>Choose Video File</span>
+                    <span class="persian">انتخاب فایل ویدیو</span>
+                </span>
+            </button>
+        </div>
+
+        <div class="video-preview hidden" id="videoPreview">
+            <video id="previewVideo" controls preload="metadata" autoplay="false" style="display: block;"></video>
+            <canvas id="previewCanvas" style="display: none; max-width: 100%; border-radius: 10px; box-shadow: 0 5px 15px rgba(204, 0, 0, 0.3);"></canvas>
+        </div>
+
+        <div class="controls hidden" id="controls">
+            <div class="control-group">
+                <label for="blurSlider" class="bilingual">
+                    <span>Blur Intensity: <span class="percentage-value" id="percentageValue">1%</span></span>
+                    <span class="persian">شدت تار شدن: <span class="percentage-value">۱٪</span></span>
+                </label>
+                <div class="slider-container">
+                    <input type="range" id="blurSlider" min="1" max="100" value="1">
+                </div>
+            </div>
+
+            <button class="button" id="processBtn">
+                <span id="processBtnText" class="bilingual">
+                    <span>Blur Video</span>
+                    <span class="persian">تار کردن ویدیو</span>
+                </span>
+            </button>
+
+            <button class="button secondary hidden" id="downloadBtn">
+                <span class="bilingual">
+                    <span>Download Blurred Video</span>
+                    <span class="persian">دانلود ویدیوی تار شده</span>
+                </span>
+            </button>
+            <button class="button secondary hidden" id="resetBtn">
+                <span class="bilingual">
+                    <span>Process Another Video</span>
+                    <span class="persian">پردازش ویدیوی دیگر</span>
+                </span>
+            </button>
+        </div>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill">0%</div>
+            </div>
+            <div class="progress-text" id="progressText">Initializing...</div>
+        </div>
+
+        <div class="conversion-links hidden" id="conversionLinks">
+            <h3 class="bilingual">
+                <span>Need MP4 format? Convert WEBM to MP4 online:</span>
+                <span class="persian">نیاز به فرمت MP4 دارید؟ تبدیل WEBM به MP4 آنلاین:</span>
+            </h3>
+            <p class="bilingual">
+                <span>This tool outputs WEBM format. Use these online converters to convert to MP4:</span>
+                <span class="persian">این ابزار خروجی WEBM می‌دهد. از این مبدل‌های آنلاین برای تبدیل به MP4 استفاده کنید:</span>
+            </p>
+            <ul>
+                <li><a href="https://cloudconvert.com/webm-to-mp4" target="_blank" rel="noopener noreferrer">CloudConvert - WEBM to MP4</a></li>
+                <li><a href="https://www.freeconvert.com/webm-to-mp4" target="_blank" rel="noopener noreferrer">FreeConvert - WEBM to MP4</a></li>
+                <li><a href="https://video.online-convert.com/convert/webm-to-mp4" target="_blank" rel="noopener noreferrer">Online-Convert - WEBM to MP4</a></li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>By: <a href="https://github.com/therealaleph" target="_blank" rel="noopener noreferrer">Shin</a></p>
+            <p>
+                <a href="https://github.com/therealaleph/blurIT" target="_blank" rel="noopener noreferrer">Source Code</a>
+                <span class="separator">|</span>
+                <a href="https://sh1n.org" target="_blank" rel="noopener noreferrer">Website</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let currentVideoFile = null;
+        let blurredVideoBlob = null;
+        let isProcessing = false;
+        let cancelProcessing = false;
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const chooseFileBtn = document.getElementById('chooseFileBtn');
+        const videoPreview = document.getElementById('videoPreview');
+        const previewVideo = document.getElementById('previewVideo');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const previewCtx = previewCanvas.getContext('2d');
+        const controls = document.getElementById('controls');
+        let previewUpdateTimeout = null;
+        const blurSlider = document.getElementById('blurSlider');
+        const percentageValue = document.getElementById('percentageValue');
+        const processBtn = document.getElementById('processBtn');
+        const processBtnText = document.getElementById('processBtnText');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const errorDiv = document.getElementById('error');
+        
+        function applyBlur(ctx, canvas, blurAmount) {
+            ctx.filter = `blur(${blurAmount}px)`;
+        }
+        
+        async function processVideoWithCanvas(videoFile, blurPercentage) {
+            return new Promise((resolve, reject) => {
+                const video = document.createElement('video');
+                video.preload = 'auto';
+                video.playsInline = true;
+                video.crossOrigin = 'anonymous';
+                
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                const videoURL = URL.createObjectURL(videoFile);
+                video.src = videoURL;
+                
+                video.addEventListener('loadedmetadata', () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    
+                    const blurAmount = (blurPercentage / 100) * 20;
+                    
+                    const canvasStream = canvas.captureStream(30);
+                    
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const source = audioContext.createMediaElementSource(video);
+                    const destination = audioContext.createMediaStreamDestination();
+                    source.connect(destination);
+                    source.connect(audioContext.destination);
+                    
+                    const combinedStream = new MediaStream();
+                    canvasStream.getVideoTracks().forEach(track => combinedStream.addTrack(track));
+                    destination.stream.getAudioTracks().forEach(track => combinedStream.addTrack(track));
+                    
+                    let streamToRecord = combinedStream;
+                    try {
+                        if (combinedStream.getAudioTracks().length === 0) {
+                            streamToRecord = canvasStream;
+                        }
+                    } catch (e) {
+                        streamToRecord = canvasStream;
+                    }
+                    
+                    let mimeType = 'video/webm;codecs=vp9';
+                    if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+                        mimeType = 'video/webm;codecs=vp8';
+                    } else if (MediaRecorder.isTypeSupported('video/webm')) {
+                        mimeType = 'video/webm';
+                    }
+                    
+                    const mediaRecorder = new MediaRecorder(streamToRecord, {
+                        mimeType: mimeType,
+                        videoBitsPerSecond: 2500000
+                    });
+                    
+                    const chunks = [];
+                    
+                    mediaRecorder.ondataavailable = (e) => {
+                        if (e.data && e.data.size > 0) {
+                            chunks.push(e.data);
+                        }
+                    };
+                    
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(chunks, { type: mimeType });
+                        URL.revokeObjectURL(videoURL);
+                        audioContext.close();
+                        resolve(blob);
+                    };
+                    
+                    mediaRecorder.onerror = (e) => {
+                        URL.revokeObjectURL(videoURL);
+                        audioContext.close();
+                        reject(new Error('MediaRecorder error: ' + (e.error || 'Unknown error')));
+                    };
+                    
+                    let animationFrameId;
+                    
+                    video.addEventListener('play', () => {
+                        mediaRecorder.start();
+                        drawFrame();
+                    });
+                    
+                    function drawFrame() {
+                        if (cancelProcessing || video.paused || video.ended) {
+                            if (!video.ended && mediaRecorder.state === 'recording') {
+                                mediaRecorder.stop();
+                            }
+                            if (animationFrameId) {
+                                cancelAnimationFrame(animationFrameId);
+                            }
+                            return;
+                        }
+                        
+                        ctx.save();
+                        ctx.filter = `blur(${blurAmount}px)`;
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        ctx.restore();
+                        
+                        if (video.duration) {
+                            const progress = (video.currentTime / video.duration) * 100;
+                            progressFill.style.width = progress + '%';
+                            progressFill.textContent = Math.round(progress) + '%';
+                            progressText.textContent = `Processing... ${Math.round(progress)}% / در حال پردازش... ${Math.round(progress)}٪`;
+                        }
+                        
+                        animationFrameId = requestAnimationFrame(drawFrame);
+                    }
+                    
+                    video.addEventListener('ended', () => {
+                        if (mediaRecorder.state === 'recording') {
+                            mediaRecorder.stop();
+                        }
+                        if (animationFrameId) {
+                            cancelAnimationFrame(animationFrameId);
+                        }
+                    });
+                    
+                    video.play().catch(err => {
+                        URL.revokeObjectURL(videoURL);
+                        audioContext.close();
+                        reject(new Error('Failed to play video: ' + err.message));
+                    });
+                });
+                
+                video.addEventListener('error', (e) => {
+                    URL.revokeObjectURL(videoURL);
+                    reject(new Error('Failed to load video: ' + (video.error ? video.error.message : 'Unknown error')));
+                });
+            });
+        }
+
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.classList.add('active');
+            setTimeout(() => {
+                errorDiv.classList.remove('active');
+            }, 5000);
+        }
+
+        function updateBlurPreview() {
+            if (!previewVideo.videoWidth || !previewVideo.videoHeight) {
+                return;
+            }
+            
+            const blurPercentage = parseInt(blurSlider.value);
+            const blurAmount = (blurPercentage / 100) * 20;
+            
+            if (previewCanvas.width !== previewVideo.videoWidth || 
+                previewCanvas.height !== previewVideo.videoHeight) {
+                previewCanvas.width = previewVideo.videoWidth;
+                previewCanvas.height = previewVideo.videoHeight;
+            }
+            
+            previewCtx.save();
+            previewCtx.filter = `blur(${blurAmount}px)`;
+            previewCtx.drawImage(previewVideo, 0, 0, previewCanvas.width, previewCanvas.height);
+            previewCtx.restore();
+            
+            previewCanvas.style.display = 'block';
+            previewVideo.style.display = 'none';
+        }
+        
+        function showOriginalPreview() {
+            previewCanvas.style.display = 'none';
+            previewVideo.style.display = 'block';
+        }
+        
+        let isSliderActive = false;
+        
+        blurSlider.addEventListener('input', (e) => {
+            const value = e.target.value;
+            percentageValue.textContent = value + '%';
+            const persianValue = value.replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+            const persianPercentage = document.querySelector('.persian .percentage-value');
+            if (persianPercentage) {
+                persianPercentage.textContent = persianValue + '٪';
+            }
+            isSliderActive = true;
+            updateBlurPreview();
+        });
+        
+        blurSlider.addEventListener('mousedown', () => {
+            isSliderActive = true;
+            if (previewUpdateTimeout) {
+                clearTimeout(previewUpdateTimeout);
+            }
+        });
+        
+        blurSlider.addEventListener('mouseup', () => {
+            isSliderActive = false;
+            if (previewUpdateTimeout) {
+                clearTimeout(previewUpdateTimeout);
+            }
+            previewUpdateTimeout = setTimeout(() => {
+                if (!isSliderActive) {
+                    showOriginalPreview();
+                }
+            }, 1500);
+        });
+        
+        blurSlider.addEventListener('touchstart', () => {
+            isSliderActive = true;
+            if (previewUpdateTimeout) {
+                clearTimeout(previewUpdateTimeout);
+            }
+        });
+        
+        blurSlider.addEventListener('touchend', () => {
+            isSliderActive = false;
+            if (previewUpdateTimeout) {
+                clearTimeout(previewUpdateTimeout);
+            }
+            previewUpdateTimeout = setTimeout(() => {
+                if (!isSliderActive) {
+                    showOriginalPreview();
+                }
+            }, 1500);
+        });
+
+        uploadArea.addEventListener('click', (e) => {
+            if (e.target === chooseFileBtn || e.target.closest('#chooseFileBtn')) {
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Upload area clicked');
+            try {
+                fileInput.click();
+            } catch (error) {
+                console.error('Error triggering file input:', error);
+                showError('Unable to open file dialog. Please try using the "Choose Video File" button or drag and drop. / نتوانست فایل را باز کند. لطفاً از دکمه "انتخاب فایل ویدیو" استفاده کنید یا فایل را بکشید.');
+            }
+        });
+        
+        chooseFileBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Choose file button clicked');
+            try {
+                fileInput.click();
+            } catch (error) {
+                console.error('Error triggering file input:', error);
+                showError('Unable to open file dialog. Please try using drag and drop instead. / نتوانست فایل را باز کند. لطفاً فایل را بکشید و رها کنید.');
+            }
+        });
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type.startsWith('video/')) {
+                handleFile(files[0]);
+            } else {
+                showError('Please drop a video file / لطفاً یک فایل ویدیو را رها کنید');
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        function handleFile(file) {
+            if (!isBrowserCompatible()) {
+                if (detectSafari()) {
+                    showBrowserIncompatibleMessage();
+                } else {
+                    showError('Your browser is not compatible. Please use Chrome, Firefox, or Edge. / مرورگر شما سازگار نیست. لطفاً از Chrome، Firefox یا Edge استفاده کنید.');
+                }
+                return;
+            }
+            
+            if (!file.type.startsWith('video/')) {
+                showError('Please select a video file / لطفاً یک فایل ویدیو انتخاب کنید');
+                return;
+            }
+
+            currentVideoFile = file;
+            const videoURL = URL.createObjectURL(file);
+            previewVideo.src = videoURL;
+            previewVideo.autoplay = false;
+            previewVideo.muted = false;
+            previewVideo.pause();
+            
+            previewVideo.addEventListener('loadedmetadata', () => {
+                previewCanvas.width = previewVideo.videoWidth;
+                previewCanvas.height = previewVideo.videoHeight;
+                previewCtx.drawImage(previewVideo, 0, 0, previewCanvas.width, previewCanvas.height);
+            }, { once: true });
+            
+            videoPreview.classList.remove('hidden');
+            controls.classList.remove('hidden');
+            uploadArea.style.display = 'none';
+            chooseFileBtn.style.display = 'none';
+            downloadBtn.classList.add('hidden');
+            resetBtn.classList.add('hidden');
+            document.getElementById('conversionLinks').classList.add('hidden');
+            blurredVideoBlob = null;
+            
+            showOriginalPreview();
+        }
+
+        processBtn.addEventListener('click', async () => {
+            if (!isBrowserCompatible()) {
+                if (detectSafari()) {
+                    showBrowserIncompatibleMessage();
+                } else {
+                    showError('Your browser is not compatible. Please use Chrome, Firefox, or Edge. / مرورگر شما سازگار نیست. لطفاً از Chrome، Firefox یا Edge استفاده کنید.');
+                }
+                return;
+            }
+            
+            if (!currentVideoFile) {
+                showError('Please select a video first / لطفاً ابتدا یک ویدیو انتخاب کنید');
+                return;
+            }
+            
+            if (isProcessing) {
+                cancelProcessing = true;
+                return;
+            }
+
+            try {
+                isProcessing = true;
+                cancelProcessing = false;
+                processBtn.disabled = true;
+                processBtnText.innerHTML = '<span class="loading"></span><span>Processing... / در حال پردازش...</span>';
+                progressContainer.classList.add('active');
+                progressText.textContent = 'Preparing video... / آماده‌سازی ویدیو...';
+                progressFill.style.width = '0%';
+
+                const blurPercentage = parseInt(blurSlider.value);
+                
+                progressText.textContent = 'Applying blur effect... / اعمال اثر تار...';
+                
+                blurredVideoBlob = await processVideoWithCanvas(currentVideoFile, blurPercentage);
+
+                progressFill.style.width = '100%';
+                progressFill.textContent = '100%';
+                progressText.textContent = 'Complete! / کامل شد!';
+                
+                await new Promise(resolve => setTimeout(resolve, 500));
+                progressContainer.classList.remove('active');
+
+                processBtn.disabled = false;
+                processBtnText.innerHTML = '<span class="bilingual"><span>Blur Video</span><span class="persian">تار کردن ویدیو</span></span>';
+                downloadBtn.classList.remove('hidden');
+                resetBtn.classList.remove('hidden');
+                document.getElementById('conversionLinks').classList.remove('hidden');
+
+                const outputURL = URL.createObjectURL(blurredVideoBlob);
+                previewVideo.src = outputURL;
+
+                downloadVideo();
+
+            } catch (error) {
+                showError('Error processing video: ' + error.message + ' / خطا در پردازش ویدیو: ' + error.message);
+                console.error('Processing error:', error);
+                processBtn.disabled = false;
+                processBtnText.innerHTML = '<span class="bilingual"><span>Blur Video</span><span class="persian">تار کردن ویدیو</span></span>';
+                progressContainer.classList.remove('active');
+            } finally {
+                isProcessing = false;
+                cancelProcessing = false;
+            }
+        });
+
+        function downloadVideo() {
+            if (blurredVideoBlob) {
+                const url = URL.createObjectURL(blurredVideoBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                const originalName = currentVideoFile.name.replace(/\.[^/.]+$/, '');
+                a.download = `blurred_${blurSlider.value}percent_${originalName}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        downloadBtn.addEventListener('click', () => {
+            downloadVideo();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            currentVideoFile = null;
+            blurredVideoBlob = null;
+            previewVideo.src = '';
+            videoPreview.classList.add('hidden');
+            controls.classList.add('hidden');
+            uploadArea.style.display = 'block';
+            chooseFileBtn.style.display = 'block';
+            document.getElementById('conversionLinks').classList.add('hidden');
+            fileInput.value = '';
+            blurSlider.value = 1;
+            percentageValue.textContent = '1%';
+            const persianPercentage = document.querySelector('.persian .percentage-value');
+            if (persianPercentage) {
+                persianPercentage.textContent = '۱٪';
+            }
+        });
+
+        function detectSafari() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            const isSafari = /safari/.test(userAgent) && !/chrome/.test(userAgent) && !/chromium/.test(userAgent);
+            return isSafari;
+        }
+
+        function isBrowserCompatible() {
+            if (detectSafari()) {
+                return false;
+            }
+            if (!window.MediaRecorder) {
+                return false;
+            }
+            if (!document.createElement('canvas').getContext) {
+                return false;
+            }
+            return true;
+        }
+
+        function showBrowserIncompatibleMessage() {
+            const errorMsg = 'Safari is not supported. Please use Chrome, Firefox, or Edge for this tool. / Safari پشتیبانی نمی‌شود. لطفاً از Chrome، Firefox یا Edge استفاده کنید.';
+            errorDiv.textContent = errorMsg;
+            errorDiv.classList.add('active');
+            errorDiv.style.display = 'block';
+            
+            uploadArea.style.pointerEvents = 'none';
+            uploadArea.style.opacity = '0.5';
+            fileInput.disabled = true;
+            chooseFileBtn.disabled = true;
+            
+            const container = document.querySelector('.container');
+            const blocker = document.createElement('div');
+            blocker.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 10000; display: flex; align-items: center; justify-content: center; color: #cc0000; font-size: 1.5em; text-align: center; padding: 20px;';
+            blocker.innerHTML = '<div class="bilingual" style="max-width: 600px;"><div style="margin-bottom: 20px; font-size: 2em;">⚠️</div><div style="margin-bottom: 10px;">Safari is not supported</div><div class="persian" style="margin-bottom: 20px;">Safari پشتیبانی نمی‌شود</div><div>Please use Chrome, Firefox, or Edge</div><div class="persian">لطفاً از Chrome، Firefox یا Edge استفاده کنید</div></div>';
+            document.body.appendChild(blocker);
+        }
+
+        window.addEventListener('load', () => {
+            if (!isBrowserCompatible()) {
+                if (detectSafari()) {
+                    showBrowserIncompatibleMessage();
+                    return;
+                }
+                showError('Your browser is not compatible. Please use Chrome, Firefox, or Edge. / مرورگر شما سازگار نیست. لطفاً از Chrome، Firefox یا Edge استفاده کنید.');
+                uploadArea.style.pointerEvents = 'none';
+                uploadArea.style.opacity = '0.5';
+                fileInput.disabled = true;
+                chooseFileBtn.disabled = true;
+                return;
+            }
+            
+            if (!window.MediaRecorder) {
+                showError('Your browser does not support MediaRecorder API. Please use a modern browser like Chrome, Firefox, or Edge. / مرورگر شما از MediaRecorder API پشتیبانی نمی‌کند. لطفاً از مرورگرهای مدرن مانند Chrome، Firefox یا Edge استفاده کنید.');
+            }
+            if (!document.createElement('canvas').getContext) {
+                showError('Your browser does not support Canvas API. Please use a modern browser. / مرورگر شما از Canvas API پشتیبانی نمی‌کند. لطفاً از مرورگرهای مدرن استفاده کنید.');
+            }
+        });
+    </script>
+</body>
+</html>
