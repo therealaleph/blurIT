@@ -421,6 +421,22 @@
                 </div>
             </div>
 
+            <div class="control-group">
+                <label for="pitchSlider" class="bilingual">
+                    <span>Audio Pitch: <span class="percentage-value" id="pitchValue">0%</span></span>
+                    <span class="persian">زیر و بم صدا: <span class="percentage-value">۰٪</span></span>
+                </label>
+                <div class="slider-container">
+                    <input type="range" id="pitchSlider" min="-50" max="50" value="0" step="1">
+                </div>
+                <button class="button secondary" id="previewAudioBtn" style="margin-top: 10px; padding: 10px; font-size: 0.9em;">
+                    <span class="bilingual">
+                        <span>🔊 Preview Audio</span>
+                        <span class="persian">🔊 پیش‌نمایش صدا</span>
+                    </span>
+                </button>
+            </div>
+
             <button class="button" id="processBtn">
                 <span id="processBtnText" class="bilingual">
                     <span>Blur Video</span>
@@ -476,6 +492,59 @@
     </div>
 
     <script>
+        class PitchShifter {
+            constructor(audioContext, bufferSize = 4096) {
+                this.audioContext = audioContext;
+                this.bufferSize = bufferSize;
+                this.pitch = 1.0;
+                this.scriptProcessor = null;
+                this.inputBuffer = new Float32Array(bufferSize * 4);
+                this.readIndex = 0;
+                this.writeIndex = 0;
+                this.bufferLength = this.inputBuffer.length;
+            }
+
+            createPitchShiftNode(inputNode) {
+                this.scriptProcessor = this.audioContext.createScriptProcessor(this.bufferSize, 1, 1);
+                
+                const self = this;
+                
+                this.scriptProcessor.onaudioprocess = function(e) {
+                    const input = e.inputBuffer.getChannelData(0);
+                    const output = e.outputBuffer.getChannelData(0);
+                    
+                    for (let i = 0; i < input.length; i++) {
+                        self.inputBuffer[self.writeIndex] = input[i];
+                        self.writeIndex = (self.writeIndex + 1) % self.bufferLength;
+                        
+                        const readPos = self.readIndex;
+                        const readIndex1 = Math.floor(readPos) % self.bufferLength;
+                        const readIndex2 = (readIndex1 + 1) % self.bufferLength;
+                        const fraction = readPos - Math.floor(readPos);
+                        
+                        output[i] = self.inputBuffer[readIndex1] * (1 - fraction) + 
+                                   self.inputBuffer[readIndex2] * fraction;
+                        
+                        self.readIndex = (self.readIndex + self.pitch) % self.bufferLength;
+                    }
+                };
+                
+                inputNode.connect(this.scriptProcessor);
+                return this.scriptProcessor;
+            }
+
+            setPitch(pitchFactor) {
+                this.pitch = Math.max(0.5, Math.min(2.0, pitchFactor));
+            }
+
+            disconnect() {
+                if (this.scriptProcessor) {
+                    this.scriptProcessor.disconnect();
+                    this.scriptProcessor = null;
+                }
+            }
+        }
+
         let currentVideoFile = null;
         let blurredVideoBlob = null;
         let isProcessing = false;
@@ -492,6 +561,9 @@
         let previewUpdateTimeout = null;
         const blurSlider = document.getElementById('blurSlider');
         const percentageValue = document.getElementById('percentageValue');
+        const pitchSlider = document.getElementById('pitchSlider');
+        const pitchValue = document.getElementById('pitchValue');
+        const previewAudioBtn = document.getElementById('previewAudioBtn');
         const processBtn = document.getElementById('processBtn');
         const processBtnText = document.getElementById('processBtnText');
         const downloadBtn = document.getElementById('downloadBtn');
@@ -501,11 +573,18 @@
         const progressText = document.getElementById('progressText');
         const errorDiv = document.getElementById('error');
         
+        let audioContext = null;
+        let audioSource = null;
+        let gainNode = null;
+        let pitchShifter = null;
+        let pitchShiftNode = null;
+        let isPreviewingAudio = false;
+        
         function applyBlur(ctx, canvas, blurAmount) {
             ctx.filter = `blur(${blurAmount}px)`;
         }
         
-        async function processVideoWithCanvas(videoFile, blurPercentage) {
+        async function processVideoWithCanvas(videoFile, blurPercentage, pitchPercentage) {
             return new Promise((resolve, reject) => {
                 const video = document.createElement('video');
                 video.preload = 'auto';
@@ -523,14 +602,27 @@
                     canvas.height = video.videoHeight;
                     
                     const blurAmount = (blurPercentage / 100) * 20;
+                    const pitchFactor = 1 + (pitchPercentage / 100);
+                    
+                    video.playbackRate = 1.0;
                     
                     const canvasStream = canvas.captureStream(30);
                     
                     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    
+                    if (audioContext.state === 'suspended') {
+                        audioContext.resume();
+                    }
+                    
                     const source = audioContext.createMediaElementSource(video);
+                    
+                    const processingPitchShifter = new PitchShifter(audioContext);
+                    processingPitchShifter.setPitch(pitchFactor);
+                    const pitchShiftNode = processingPitchShifter.createPitchShiftNode(source);
+                    
                     const destination = audioContext.createMediaStreamDestination();
-                    source.connect(destination);
-                    source.connect(audioContext.destination);
+                    pitchShiftNode.connect(destination);
+                    pitchShiftNode.connect(audioContext.destination);
                     
                     const combinedStream = new MediaStream();
                     canvasStream.getVideoTracks().forEach(track => combinedStream.addTrack(track));
@@ -684,6 +776,114 @@
             updateBlurPreview();
         });
         
+        pitchSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            pitchValue.textContent = (value > 0 ? '+' : '') + value + '%';
+            const persianValue = (value > 0 ? '+' : '') + value.toString().replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+            const persianPitch = document.querySelectorAll('.persian .percentage-value')[1];
+            if (persianPitch) {
+                persianPitch.textContent = persianValue + '٪';
+            }
+            if (previewVideo.src && previewVideo.videoWidth && !pitchShifter) {
+                setupAudioContext();
+            }
+            updateAudioPitch();
+        });
+        
+        function setupAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            if (pitchShiftNode) {
+                try {
+                    pitchShiftNode.disconnect();
+                } catch (e) {}
+                pitchShiftNode = null;
+            }
+            if (pitchShifter) {
+                try {
+                    pitchShifter.disconnect();
+                } catch (e) {}
+                pitchShifter = null;
+            }
+            
+            if (!audioSource || audioSource.context !== audioContext) {
+                try {
+                    if (audioSource) {
+                        try {
+                            audioSource.disconnect();
+                        } catch (e) {}
+                    }
+                    audioSource = audioContext.createMediaElementSource(previewVideo);
+                } catch (e) {
+                    console.error('Error creating media element source:', e);
+                    return;
+                }
+            }
+            
+            try {
+                pitchShifter = new PitchShifter(audioContext);
+                pitchShiftNode = pitchShifter.createPitchShiftNode(audioSource);
+                
+                pitchShiftNode.connect(audioContext.destination);
+            } catch (e) {
+                console.error('Error setting up pitch shifter:', e);
+            }
+        }
+        
+        function updateAudioPitch() {
+            if (!previewVideo.src || !previewVideo.videoWidth) return;
+            
+            const pitchPercent = parseInt(pitchSlider.value);
+            const pitchFactor = 1 + (pitchPercent / 100);
+            
+            if (pitchShifter) {
+                pitchShifter.setPitch(pitchFactor);
+            }
+            
+            previewVideo.playbackRate = 1.0;
+        }
+        
+        previewAudioBtn.addEventListener('click', async () => {
+            if (!previewVideo.src || !previewVideo.videoWidth) {
+                showError('Please load a video first / لطفاً ابتدا یک ویدیو بارگذاری کنید');
+                return;
+            }
+            
+            if (isPreviewingAudio) {
+                previewVideo.pause();
+                isPreviewingAudio = false;
+                previewAudioBtn.innerHTML = '<span class="bilingual"><span>🔊 Preview Audio</span><span class="persian">🔊 پیش‌نمایش صدا</span></span>';
+                previewVideo.playbackRate = 1.0;
+                return;
+            }
+            
+            setupAudioContext();
+            updateAudioPitch();
+            
+            previewVideo.currentTime = 0;
+            previewVideo.playbackRate = 1.0;
+            
+            try {
+                await previewVideo.play();
+                isPreviewingAudio = true;
+                previewAudioBtn.innerHTML = '<span class="bilingual"><span>⏸️ Stop Preview</span><span class="persian">⏸️ توقف پیش‌نمایش</span></span>';
+            } catch (err) {
+                showError('Error playing audio preview: ' + err.message + ' / خطا در پخش پیش‌نمایش صدا: ' + err.message);
+            }
+            
+            previewVideo.addEventListener('ended', () => {
+                isPreviewingAudio = false;
+                previewAudioBtn.innerHTML = '<span class="bilingual"><span>🔊 Preview Audio</span><span class="persian">🔊 پیش‌نمایش صدا</span></span>';
+                previewVideo.playbackRate = 1.0;
+            }, { once: true });
+        });
+        
         blurSlider.addEventListener('mousedown', () => {
             isSliderActive = true;
             if (previewUpdateTimeout) {
@@ -803,7 +1003,43 @@
             previewVideo.src = videoURL;
             previewVideo.autoplay = false;
             previewVideo.muted = false;
+            previewVideo.playbackRate = 1;
             previewVideo.pause();
+            
+            pitchSlider.value = 0;
+            pitchValue.textContent = '0%';
+            const persianPitch = document.querySelectorAll('.persian .percentage-value')[1];
+            if (persianPitch) {
+                persianPitch.textContent = '۰٪';
+            }
+            
+            if (pitchShiftNode) {
+                try {
+                    pitchShiftNode.disconnect();
+                } catch (e) {}
+                pitchShiftNode = null;
+            }
+            if (pitchShifter) {
+                try {
+                    pitchShifter.disconnect();
+                } catch (e) {}
+                pitchShifter = null;
+            }
+            if (audioSource) {
+                try {
+                    audioSource.disconnect();
+                } catch (e) {}
+                audioSource = null;
+            }
+            if (audioContext && audioContext.state !== 'closed') {
+                try {
+                    audioContext.close();
+                } catch (e) {}
+                audioContext = null;
+            }
+            isPreviewingAudio = false;
+            previewVideo.playbackRate = 1.0;
+            previewAudioBtn.innerHTML = '<span class="bilingual"><span>🔊 Preview Audio</span><span class="persian">🔊 پیش‌نمایش صدا</span></span>';
             
             previewVideo.addEventListener('loadedmetadata', () => {
                 previewCanvas.width = previewVideo.videoWidth;
@@ -853,10 +1089,11 @@
                 progressFill.style.width = '0%';
 
                 const blurPercentage = parseInt(blurSlider.value);
+                const pitchPercentage = parseInt(pitchSlider.value);
                 
-                progressText.textContent = 'Applying blur effect... / اعمال اثر تار...';
+                progressText.textContent = 'Applying blur and pitch effects... / اعمال اثرات تار و زیر و بم...';
                 
-                blurredVideoBlob = await processVideoWithCanvas(currentVideoFile, blurPercentage);
+                blurredVideoBlob = await processVideoWithCanvas(currentVideoFile, blurPercentage, pitchPercentage);
 
                 progressFill.style.width = '100%';
                 progressFill.textContent = '100%';
@@ -894,7 +1131,9 @@
                 const a = document.createElement('a');
                 a.href = url;
                 const originalName = currentVideoFile.name.replace(/\.[^/.]+$/, '');
-                a.download = `blurred_${blurSlider.value}percent_${originalName}.webm`;
+                const pitchValue = parseInt(pitchSlider.value);
+                const pitchStr = pitchValue === 0 ? '' : `_pitch${pitchValue > 0 ? '+' : ''}${pitchValue}percent`;
+                a.download = `blurred_${blurSlider.value}percent${pitchStr}_${originalName}.webm`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -922,6 +1161,37 @@
             if (persianPercentage) {
                 persianPercentage.textContent = '۱٪';
             }
+            pitchSlider.value = 0;
+            pitchValue.textContent = '0%';
+            const persianPitch = document.querySelectorAll('.persian .percentage-value')[1];
+            if (persianPitch) {
+                persianPitch.textContent = '۰٪';
+            }
+            if (audioSource) {
+                try {
+                    audioSource.disconnect();
+                } catch (e) {}
+                audioSource = null;
+            }
+            if (pitchShiftNode) {
+                try {
+                    pitchShiftNode.disconnect();
+                } catch (e) {}
+                pitchShiftNode = null;
+            }
+            if (pitchShifter) {
+                try {
+                    pitchShifter.disconnect();
+                } catch (e) {}
+                pitchShifter = null;
+            }
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close();
+                audioContext = null;
+            }
+            isPreviewingAudio = false;
+            previewVideo.playbackRate = 1.0;
+            previewAudioBtn.innerHTML = '<span class="bilingual"><span>🔊 Preview Audio</span><span class="persian">🔊 پیش‌نمایش صدا</span></span>';
         });
 
         function detectSafari() {

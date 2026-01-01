@@ -5,7 +5,9 @@ A professional tool for blurring videos with customizable blur percentage. Avail
 ## Features
 
 - Apply Gaussian blur with configurable intensity (1-100%)
+- Adjust audio pitch without changing playback speed (-50% to +50%)
 - Real-time preview of blur effect (HTML version)
+- Audio preview with pitch changes (HTML version)
 - Preserves audio and video quality
 - Multiple deployment options
 - Bilingual interface (English & Persian)
@@ -93,6 +95,8 @@ A completely offline HTML application that runs entirely in your browser. No int
 - **No Internet Required** - Works completely offline
 - **Privacy First** - Your videos never leave your device
 - **Real-time Preview** - See blur effect before processing
+- **Audio Pitch Control** - Adjust audio pitch (-50% to +50%) without changing playback speed
+- **Audio Preview** - Preview audio with pitch changes before processing
 - **Auto-download** - Processed videos download automatically
 - **WEBM Output** - Outputs in WEBM format (can be converted to MP4 online)
 
@@ -108,8 +112,10 @@ A completely offline HTML application that runs entirely in your browser. No int
 1. Open `local-version/index.html` in a compatible browser
 2. Click or drag a video file to upload
 3. Adjust blur intensity using the slider (1-100%)
-4. Click "Blur Video" to process
-5. Video will automatically download as WEBM format
+4. Adjust audio pitch using the pitch slider (-50% to +50%)
+5. Click "Preview Audio" to hear the pitch changes (optional)
+6. Click "Blur Video" to process
+7. Video will automatically download as WEBM format with both blur and pitch effects applied
 
 #### Converting WEBM to MP4
 
@@ -125,6 +131,8 @@ Since the tool outputs WEBM format, you can use these online converters to conve
 - Maximum privacy
 - Works on any device with a browser
 - Real-time preview
+- Audio pitch adjustment without speed change
+- Audio preview functionality
 
 **Cons:**
 - Outputs WEBM format (needs conversion for MP4)
@@ -142,6 +150,8 @@ Since the tool outputs WEBM format, you can use these online converters to conve
 | Privacy | Medium | High | Maximum |
 | Output Format | MP4 | MP4 | WEBM |
 | Real-time Preview | No | No | Yes |
+| Audio Pitch Control | No | No | Yes |
+| Audio Preview | No | No | Yes |
 | Works Offline | No | No | Yes |
 | Browser Support | Any (Telegram) | Any (Telegram) | Chrome/Firefox/Edge |
 
